@@ -102,14 +102,14 @@
     ['Giornale Radiotelegrafico', 'l', 'È un libro di bordo.'],
     ['Cargo Ship Safety Certificate', 'k', 'Certificato di sicurezza di base.'],
   ];
-  const dc = { i: 0, x: 0, esito: null, copie: [] };
+  const dc = { i: 0, x: 0, z: 0, esito: null, copie: [] };
   const XS = (i) => -30 + i * 30;
   function posaDocumento() {
     dc.copie.forEach((c) => {
       c.nomi.forEach((e, i) => { e.visible = i === dc.i; });
       const resta = dc.i < DOCUMENTI.length;
       c.foglio.visible = resta; c.presa.visible = resta;
-      c.foglio.position.x = dc.x; c.presa.position.x = dc.x;
+      c.foglio.position.set(dc.x, 1, 14 + dc.z); c.presa.position.set(dc.x, 4, 14 + dc.z);
       c.fatti.forEach((m, i) => { m.visible = i < dc.i; });
     });
   }
@@ -121,7 +121,7 @@
       dc.i += 1;
       if (dc.i === DOCUMENTI.length) lez.completa('documenti');
     } else dc.esito = { tipo: 'errato', testo: `${nome} non va lì: riprova.` };
-    dc.x = 0; posaDocumento();
+    dc.x = 0; dc.z = 0; posaDocumento();
   }
   const creaDocumenti = Lezione.simula({
     scala: 0.0125, centro: [0, 3], k: 3, mare: false, pedana: [0, 40, 'davanti agli scaffali'], dopo: posaDocumento,
@@ -139,6 +139,7 @@
       foglio.position.set(0, 1, 14); g.add(foglio);
       const nomi = DOCUMENTI.map(([t]) => { const e = etichetta(t, dim + 0.6, '#0B2545'); e.position.set(0, 8, 14); g.add(e); return e; });
       const presa = maniglia(1.6 + k * 0.4, 'doc'); presa.position.set(0, 4, 14); g.add(presa); tocca(presa);
+      presa.userData.vincolo = { piano: [0, 1, 0] }; // il documento si porta sul pavimento fino allo scaffale
       // Documenti già archiviati: un dorso per ciascuno sullo scaffale giusto
       const conta = {};
       const fatti = DOCUMENTI.map((d) => {
@@ -149,15 +150,20 @@
       dc.copie.push({ foglio, presa, nomi, fatti });
       return g;
     },
-    trascina(id, dx) { dc.x = Math.max(-40, Math.min(40, dc.x + dx * 0.1)); posaDocumento(); },
+    trascina(id, dx, dy, info) {
+      if (info) { dc.x += info.v.x; dc.z += info.v.z; } else dc.x += dx * 0.1;
+      dc.x = Math.max(-40, Math.min(40, dc.x)); dc.z = Math.max(-24, Math.min(8, dc.z));
+      posaDocumento();
+    },
   });
   function comandiDocumenti(id) {
     if (id.startsWith('t:')) { const t = id.slice(2).split(',')[0]; if (t !== 'doc') archivia(t); }
-    if (id === 'lascia:doc' && Math.abs(dc.x) > 3) {
+    if (id === 'lascia:doc' && (Math.abs(dc.x) > 3 || dc.z < -8)) {
       let vic = 0; SCAFFALI.forEach((s, i) => { if (Math.abs(XS(i) - dc.x) < Math.abs(XS(vic) - dc.x)) vic = i; });
       archivia(SCAFFALI[vic][0]);
     }
-    if (id === 'daccapo') { dc.i = 0; dc.esito = null; dc.x = 0; posaDocumento(); }
+    if (id === 'lascia:doc' && dc.i < DOCUMENTI.length && (dc.x || dc.z)) { dc.x = 0; dc.z = 0; posaDocumento(); }
+    if (id === 'daccapo') { dc.i = 0; dc.esito = null; dc.x = 0; dc.z = 0; posaDocumento(); }
     Motore.sporco();
   }
 
@@ -253,7 +259,7 @@
     c.fillStyle = C.rosso; c.beginPath(); c.arc(X(5), ay - 60, 22, 0, Math.PI * 2); c.fill();
     c.font = font('b', 32); c.textAlign = 'left'; c.fillStyle = C.verde; c.fillText('Classe', X(0) - 10, y + 40);
     c.textAlign = 'right'; c.fillStyle = C.rosso; c.fillText('Class renewal', X(5) + 10, y + 40);
-    c.textAlign = 'center'; c.fillStyle = C.ink2; c.font = font('n', 30); c.fillText('anni dall\'assegnazione della classe', ox + gw / 2, ay + 92);
+    c.textAlign = 'center'; c.fillStyle = C.ink2; c.font = font('n', 32); c.fillText('anni dall\'assegnazione della classe', ox + gw / 2, ay + 92);
     c.textAlign = 'left';
   }
 
@@ -320,7 +326,7 @@
           ...lez.missioni().slice(3, 4),
           { t: 'nota', testo: 'Trascina il documento sullo scaffale giusto, oppure tocca lo scaffale.' },
         ],
-        dx: Lezione.finestra(760, 'Tira la sfera d\'oro sullo scaffale, oppure punta lo scaffale e premi il grilletto.'),
+        dx: Lezione.finestra(760, 'Porta la sfera d\'oro con il documento fino allo scaffale, oppure punta lo scaffale e premi il grilletto.'),
       },
       {
         passo: 2, mondo: creaStazza, azione: comandiStazza, richiede: () => lez.fatte.has('documenti'), avviso: 'Se salti, niente bandiera.',

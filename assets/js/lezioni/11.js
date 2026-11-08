@@ -71,12 +71,15 @@
       const e = etichetta('perpendicolare avanti', dim, '#0B2545'); e.position.set(FP - 6, 15, 0); g.add(e);
       const paratia = new THREE.Mesh(sezione(80), lastra(0x2F7A55, 0.9)); g.add(paratia);
       const presa = maniglia(0.5 + k * 0.25, 'd'); presa.position.set(80, 10.6, 0); g.add(presa); tocca(presa);
+      presa.userData.vincolo = { asse: [1, 0, 0] }; // la sfera sta sulla paratia e la porta lungo la nave
       co.copie.push({ paratia, presa, zona });
       return g;
     },
-    trascina(id, dx) {
+    trascina(id, dx, dy, info) {
       const prima = `${num(co.d)}|${dentro()}`;
-      co.d = Math.max(0, Math.min(0.2 * co.L, co.d - (dx * 0.06) / scala()));
+      // Verso prua la distanza dalla perpendicolare avanti cala; a passi di mezzo metro, come le frecce
+      const d = info ? co.d - info.s / scala() : co.d - (dx * 0.06) / scala();
+      co.d = Math.max(0, Math.min(0.2 * co.L, info ? Math.round(d * 2) / 2 : d));
       posaCollisione(); verifica();
       if (`${num(co.d)}|${dentro()}` !== prima) Motore.ridisegna();
     },
@@ -265,7 +268,7 @@
         ],
         dx: [
           ...Lezione.finestra(760),
-          { t: 'nota', testo: 'In ocra la zona consentita. Trascina la sfera d\'oro o usa i regolatori. Lo scafo disegnato non cambia con L.' },
+          { t: 'nota', testo: 'In ocra la zona consentita. La sfera d\'oro sta sulla paratia: portala lungo la nave, oppure usa i regolatori. Lo scafo disegnato non cambia con L.' },
         ],
       },
       {
